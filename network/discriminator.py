@@ -3,6 +3,36 @@ import torch.nn as nn
 from torch.nn.utils import spectral_norm
 
 
+class PatchDisc(nn.Module):
+    def __init__(self, nr_class=2):
+        super().__init__()
+        self.nr_class = nr_class
+
+        def block(in_c, out_c, stride=2):
+            return nn.Sequential(
+                nn.Conv2d(in_c, out_c, 4, stride, 1),
+                nn.BatchNorm2d(out_c),
+                nn.LeakyReLU(0.2),
+            )
+
+        layers = []
+        layers.append(nn.Conv2d(3, 64, 4, 2, 1))
+        layers.append(nn.LeakyReLU(0.2))
+        layers.append(block(64, 128))
+        layers.append(block(128, 256))
+        layers.append(block(256, 512, 1))
+        self.conv = nn.Sequential(*layers)
+
+        self.src = nn.Conv2d(512, 1, 4, 1, 1)
+        self.cls = nn.Conv2d(512, nr_class, 31)
+
+    def forward(self, x):
+        x = self.conv(x)
+        if self.nr_class == 1:
+            return self.src(x).flatten(1)
+        return self.src(x).flatten(1), self.cls(x).squeeze()
+
+
 class SNPatchDisc(nn.Module):
     def __init__(self, nr_class=2):
         super().__init__()
@@ -62,14 +92,21 @@ class StarDisc(nn.Module):
         return self.src(x), self.cls(x).squeeze()
 
 
-def test():
+def test0():
+    x = torch.randn((5, 3, 256, 256))
+    model = PatchDisc()
+    preds = model(x)
+    print(preds[0].shape, preds[1].shape)
+
+
+def test1():
     x = torch.randn((5, 3, 256, 256))
     model = SNPatchDisc()
     preds = model(x)
     print(preds[0].shape, preds[1].shape)
 
 
-def test1():
+def test3():
     x = torch.randn((5, 3, 256, 256))
     model = StarDisc()
     preds = model(x)
@@ -77,5 +114,6 @@ def test1():
 
 
 if __name__ == "__main__":
-    test()
+    test0()
     test1()
+    test3()
