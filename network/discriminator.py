@@ -23,14 +23,17 @@ class PatchDisc(nn.Module):
         layers.append(block(256, 512, 1))
         self.conv = nn.Sequential(*layers)
 
-        self.src = nn.Conv2d(512, 1, 4, 1, 1)
+        self.src = nn.Sequential(
+            nn.Conv2d(512, 1, 4, 1, 1),
+            nn.Flatten(),
+        )
         self.cls = nn.Conv2d(512, nr_class, 31)
 
     def forward(self, x):
         x = self.conv(x)
         if self.nr_class == 1:
-            return self.src(x).flatten(1)
-        return self.src(x).flatten(1), self.cls(x).squeeze()
+            return self.src(x)
+        return self.src(x), self.cls(x).squeeze()
 
 
 class SNPatchDisc(nn.Module):
@@ -50,16 +53,69 @@ class SNPatchDisc(nn.Module):
         layers.append(block(128, 256))
         layers.append(block(256, 256))
         layers.append(block(256, 256))
-        layers.append(block(256, 256))
         self.conv = nn.Sequential(*layers)
 
-        self.cls = nn.Conv2d(256, nr_class, 8)
+        self.src = nn.Sequential(
+            block(256, 256),
+            nn.Flatten(),
+        )
+        self.cls = nn.Conv2d(256, nr_class, 16)
 
     def forward(self, x):
         x = self.conv(x)
         if self.nr_class == 1:
-            return x.flatten(1)
-        return x.flatten(1), self.cls(x).squeeze()
+            return self.src(x)
+        return self.src(x), self.cls(x).squeeze()
+
+
+# Discriminator of PEPSI++
+class RED(nn.Module):
+    def __init__(self, nr_class=2, disc_m='red'):
+        super().__init__()
+        self.nr_class = nr_class
+        self.disc_m = disc_m
+
+        def block(in_c, out_c):
+            return nn.Sequential(
+                spectral_norm(nn.Conv2d(in_c, out_c, 5, 2, 2)),
+                nn.LeakyReLU(0.2),
+            )
+
+        layers = []
+        layers.append(block(3, 64))
+        layers.append(block(64, 128))
+        layers.append(block(128, 256))
+        layers.append(block(256, 256))
+        layers.append(block(256, 256))
+        layers.append(block(256, 512))
+        self.conv = nn.Sequential(*layers)
+
+        if disc_m == 'patchgan':
+            self.src = nn.Sequential(
+                nn.Conv2d(512, 1, 1),
+                nn.Flatten(),
+            )
+        if disc_m == 'snpatchgan':
+            self.src = nn.Flatten()
+        if disc_m == 'red':
+            self.src = [nn.Linear(512, 1) for _ in range(4 ** 2)]
+        self.cls = nn.Conv2d(512, nr_class, 4)
+
+    def forward(self, x):
+        x = self.conv(x)
+
+        if self.disc_m == 'red':
+            pixels = x.flatten(2).split(1, 2)
+            temp = []
+            for i, pixel in enumerate(pixels):
+                temp.append(self.src[i](pixel.squeeze()))
+            src = torch.cat(temp, 1)
+        else:
+            src = self.src(x)
+
+        if self.nr_class == 1:
+            return src
+        return src, self.cls(x).squeeze()
 
 
 class StarDisc(nn.Module):
@@ -106,6 +162,13 @@ def test1():
     print(preds[0].shape, preds[1].shape)
 
 
+def test2():
+    x = torch.randn((5, 3, 256, 256))
+    model = RED()
+    preds = model(x)
+    print(preds[0].shape, preds[1].shape)
+
+
 def test3():
     x = torch.randn((5, 3, 256, 256))
     model = StarDisc()
@@ -114,6 +177,7 @@ def test3():
 
 
 if __name__ == "__main__":
-    test0()
-    test1()
-    test3()
+    # test0()
+    # test1()
+    test2()
+    # test3()
