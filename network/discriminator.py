@@ -36,38 +36,6 @@ class PatchDisc(nn.Module):
         return self.src(x), self.cls(x).squeeze()
 
 
-class SNPatchDisc(nn.Module):
-    def __init__(self, nr_class=2):
-        super().__init__()
-        self.nr_class = nr_class
-
-        def block(in_c, out_c, stride=2):
-            return nn.Sequential(
-                spectral_norm(nn.Conv2d(in_c, out_c, 5, stride, 2)),
-                nn.LeakyReLU(0.2),
-            )
-
-        layers = []
-        layers.append(block(3, 64, 1))
-        layers.append(block(64, 128))
-        layers.append(block(128, 256))
-        layers.append(block(256, 256))
-        layers.append(block(256, 256))
-        self.conv = nn.Sequential(*layers)
-
-        self.src = nn.Sequential(
-            block(256, 256),
-            nn.Flatten(),
-        )
-        self.cls = nn.Conv2d(256, nr_class, 16)
-
-    def forward(self, x):
-        x = self.conv(x)
-        if self.nr_class == 1:
-            return self.src(x)
-        return self.src(x), self.cls(x).squeeze()
-
-
 # Discriminator of PEPSI++
 class RED(nn.Module):
     def __init__(self, nr_class=2, disc_m='red'):
@@ -157,19 +125,12 @@ def test0():
 
 def test1():
     x = torch.randn((5, 3, 256, 256))
-    model = SNPatchDisc()
-    preds = model(x)
-    print(preds[0].shape, preds[1].shape)
-
-
-def test2():
-    x = torch.randn((5, 3, 256, 256))
     model = RED()
     preds = model(x)
     print(preds[0].shape, preds[1].shape)
 
 
-def test3():
+def test2():
     x = torch.randn((5, 3, 256, 256))
     model = StarDisc()
     preds = model(x)
@@ -180,4 +141,3 @@ if __name__ == "__main__":
     test0()
     test1()
     test2()
-    test3()
