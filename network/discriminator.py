@@ -96,7 +96,7 @@ class StarDisc(nn.Module):
                 nn.Conv2d(in_c, out_c, 4, 2, 1),
                 nn.LeakyReLU()
             )
-        
+
         layers = []
         layers.append(block(3, 64))
         layers.append(block(64, 128))
@@ -106,8 +106,14 @@ class StarDisc(nn.Module):
         layers.append(block(1024, 2048))
         self.conv = nn.Sequential(*layers)
 
-        self.src = nn.Conv2d(2048, 1, 3, 1, 1)
-        self.cls = nn.Conv2d(2048, nr_class, 4)
+        self.src = nn.Sequential(
+            nn.Conv2d(2048, 1, 3, 1, 1),
+            nn.Sigmoid(),
+        )
+        self.cls = nn.Sequential(
+            nn.Conv2d(2048, nr_class, 4),
+            nn.Softmax(1),
+        )
 
     def forward(self, x):
         x = self.conv(x)
