@@ -3,6 +3,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from network.architecture import CycleGAN
+from network.architecture import StarGAN
 from data import FaceDataModule
 
 
