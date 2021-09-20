@@ -51,6 +51,7 @@ class CycleGAN(pl.LightningModule):
             y_loss = y_adv_loss + lambda_rec * y_rec_loss
             loss = x_loss + y_loss
             self.log("train/gen_loss", loss)
+            self.log("train/y_rec_loss", y_rec_loss)
             return loss
 
         # Update discriminator
@@ -156,6 +157,7 @@ class StarGAN(pl.LightningModule):
             y_loss = y_adv_loss + y_cls_loss + lambda_rec * y_rec_loss
             loss = x_loss + y_loss
             self.log("train/gen_loss", loss)
+            self.log("train/y_rec_loss", y_rec_loss)
             return loss
 
         # Update discriminator
