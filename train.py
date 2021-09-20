@@ -1,4 +1,4 @@
-#!/var/home/menno/Documents/GANdalf/.venv/bin/python
+#!/home/menno/Documents/GANdalf/.venv/bin/python
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
@@ -16,7 +16,8 @@ def main():
     )
 
     model = CycleGAN()
-    trainer = Trainer(callbacks=[checkpoint_callback])
+    trainer = Trainer(callbacks=[checkpoint_callback],
+                      gpus=1)
     dm = FaceDataModule()
 
     trainer.fit(model, dm)

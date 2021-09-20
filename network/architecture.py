@@ -1,4 +1,3 @@
-import lpips
 import torch
 
 from torch import nn
@@ -37,13 +36,15 @@ class CycleGAN(pl.LightningModule):
             y_hat = self.gen_y(x)
             src_r = self.disc_x(x)
             src_f = self.disc_y(y_hat)
-            x_adv_loss = src_r.log().mean() + (1 - src_f).log().mean()
+            x_adv_loss = (src_r + 1e-8).log().mean() + \
+                (1 - src_f + 1e-8).log().mean()
             x_rec_loss = F.l1_loss(self.gen_x(y_hat), x)
 
             x_hat = self.gen_x(y)
             src_r = self.disc_y(y)
             src_f = self.disc_x(x_hat)
-            y_adv_loss = src_r.log().mean() + (1 - src_f).log().mean()
+            y_adv_loss = (src_r + 1e-8).log().mean() + \
+                (1 - src_f + 1e-8).log().mean()
             y_rec_loss = F.l1_loss(self.gen_y(x_hat), y)
 
             lambda_rec = 10
@@ -59,12 +60,20 @@ class CycleGAN(pl.LightningModule):
             y_hat = self.gen_y(x)
             src_r = self.disc_x(x)
             src_f = self.disc_y(y_hat)
-            x_adv_loss = src_r.log().mean() + (1 - src_f).log().mean()
+            x_adv_loss = (src_r + 1e-8).log().mean() + \
+                (1 - src_f + 1e-8).log().mean()
+            print(x_adv_loss)
+            print(src_r.min(), src_r.max())
+            print(src_f.min(), src_f.max())
 
             x_hat = self.gen_x(y)
             src_r = self.disc_y(y)
             src_f = self.disc_x(x_hat)
-            y_adv_loss = src_r.log().mean() + (1 - src_f).log().mean()
+            y_adv_loss = (src_r + 1e-8).log().mean() + \
+                (1 - src_f + 1e-8).log().mean()
+            print(y_adv_loss)
+            print(src_r.min(), src_r.max())
+            print(src_f.min(), src_f.max())
 
             x_loss = -x_adv_loss
             y_loss = -y_adv_loss

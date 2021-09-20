@@ -92,10 +92,10 @@ class FaceDataUnpaired(Dataset):
 
 class FaceDataModule(pl.LightningDataModule):
     def __init__(self,
-                 train_dir_x='/var/home/menno/Documents/huawei/data/train_data/FFHQ',
-                 train_dir_y='/var/home/menno/Documents/huawei/data/train_data/CMFD',
-                 test_dir_x='/var/home/menno/Documents/huawei/data/test_data/FFHQ',
-                 test_dir_y='/var/home/menno/Documents/huawei/data/test_data/CMFD',
+                 train_dir_x='/home/menno/Documents/data/train_data/FFHQ',
+                 train_dir_y='/home/menno/Documents/data/train_data/CMFD',
+                 test_dir_x='/home/menno/Documents/data/test_data/FFHQ',
+                 test_dir_y='/home/menno/Documents/data/test_data/CMFD',
                  batch_size=4, num_workers=8):
         super().__init__()
         self.train_dir_x = train_dir_x

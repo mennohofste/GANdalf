@@ -34,9 +34,10 @@ class StarGen(nn.Module):
         layers.append(block(128, 256, 4, 2, 1))
         self.encoder = nn.Sequential(*layers)
 
-        self.bottleneck = []
+        layers = []
         for _ in range(nr_resblocks):
-            self.bottleneck.append(block())
+            layers.append(block())
+        self.bottleneck = nn.ModuleList(layers)
 
         layers = []
         layers.append(block(256, 128, 4, 2, 1, upconv))
