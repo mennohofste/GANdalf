@@ -84,6 +84,7 @@ class CycleGAN(pl.LightningModule):
         self.manual_backward(g_loss)
         g_opt.step()
 
+        self.log("train/disc_loss", d_loss)
         self.log("train/gen_loss", g_loss)
         self.log("train/y_rec_loss", y_rec_loss)
         self.log("train/x_src_r", x_src_r.mean())
@@ -164,16 +165,24 @@ class StarGAN(pl.LightningModule):
         self.disc = StarDisc(nr_classes)
 
         self.lpips = LPIPS()
+        self.automatic_optimization = False
 
     def forward(self, x):
-        zeros = torch.zeros(x.shape[0], 1, x.shape[2], x.shape[3])
-        ones = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
+        shape = list(x.shape)
+        shape[1] = 1
+
+        zeros = torch.zeros(shape, device=self.device)
+        ones = torch.ones(shape, device=self.device)
         return torch.cat([self.gen(x), zeros, ones], 1)
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx):
+        g_opt, d_opt = self.optimizers()
         x, y = batch
-        zeros = torch.zeros(x.shape[0], 1, x.shape[2], x.shape[3])
-        ones = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
+
+        shape = list(x.shape)
+        shape[1] = 1
+        zeros = torch.zeros(shape, device=self.device)
+        ones = torch.ones(shape, device=self.device)
 
         def to_x(y):
             return torch.cat([y, ones, zeros], 1)
@@ -181,58 +190,68 @@ class StarGAN(pl.LightningModule):
         def to_y(x):
             return torch.cat([x, zeros, ones], 1)
 
-        # Update generator
-        if optimizer_idx == 0:
-            y_hat = self.gen(to_y(x))
-            src_r, cls_r = self.disc(x)
-            src_f, cls_f = self.disc(y_hat)
-            x_adv_loss = (src_r + 1e-8).log().mean() + \
-                (1 - src_f + 1e-8).log().mean()
-            x_cls_loss = -cls_f.log().mean()
-            x_rec_loss = F.l1_loss(self.gen(to_x(y_hat)), x)
+        x_hat = self.gen(to_x(y))
+        y_hat = self.gen(to_y(x))
 
-            x_hat = self.gen(to_x(y))
-            src_r, cls_r = self.disc(y)
-            src_f, cls_f = self.disc(x_hat)
-            y_adv_loss = (src_r + 1e-8).log().mean() + \
-                (1 - src_f + 1e-8).log().mean()
-            y_cls_loss = -cls_f.log().mean()
-            y_rec_loss = F.l1_loss(self.gen(to_y(x_hat)), y)
+        # Discriminator
+        x_src_r, x_cls_r = self.disc(x)
+        y_src_r, y_cls_r = self.disc(y)
 
-            lambda_rec = 10
-            x_loss = x_adv_loss + x_cls_loss + lambda_rec * x_rec_loss
-            y_loss = y_adv_loss + y_cls_loss + lambda_rec * y_rec_loss
-            loss = x_loss + y_loss
-            self.log("train/gen_loss", loss)
-            self.log("train/y_rec_loss", y_rec_loss)
-            return loss
+        x_src_f, _ = self.disc(x_hat.detach())
+        y_src_f, _ = self.disc(y_hat.detach())
 
-        # Update discriminator
-        if optimizer_idx == 1:
-            y_hat = self.gen(to_y(x))
-            src_r, cls_r = self.disc(x)
-            src_f, cls_f = self.disc(y_hat)
-            x_adv_loss = (src_r + 1e-8).log().mean() + \
-                (1 - src_f + 1e-8).log().mean()
-            x_cls_loss = -cls_r.log().mean()
+        x_adv_loss = adv_loss(x_src_r, x_src_f)
+        y_adv_loss = adv_loss(y_src_r, y_src_f)
 
-            x_hat = self.gen(to_x(y))
-            src_r, cls_r = self.disc(y)
-            src_f, cls_f = self.disc(x_hat)
-            y_adv_loss = (src_r + 1e-8).log().mean() + \
-                (1 - src_f + 1e-8).log().mean()
-            y_cls_loss = -cls_r.log().mean()
+        x_cls_loss = (-x_cls_r[0].log()).mean()
+        y_cls_loss = (-y_cls_r[1].log()).mean()
 
-            x_loss = -x_adv_loss + x_cls_loss
-            y_loss = -y_adv_loss + y_cls_loss
-            loss = x_loss + y_loss
-            self.log("train/disc_loss", loss)
-            return loss
+        x_d_loss = -x_adv_loss + x_cls_loss
+        y_d_loss = -y_adv_loss + y_cls_loss
+        d_loss = x_d_loss + y_d_loss
+
+        d_opt.zero_grad()
+        self.manual_backward(d_loss)
+        d_opt.step()
+
+        # Generator
+        # Recompute probabilities over source, because
+        # we need backward graph through generator
+        x_src_f, x_cls_f = self.disc(x_hat)
+        y_src_f, y_cls_f = self.disc(y_hat)
+
+        x_adv_loss = adv_loss(x_src_r.detach(), x_src_f)
+        y_adv_loss = adv_loss(y_src_r.detach(), y_src_f)
+
+        x_cls_loss = (-x_cls_f[0].log()).mean()
+        y_cls_loss = (-y_cls_f[1].log()).mean()
+
+        x_rec_loss = F.l1_loss(self.gen(to_x(y_hat)), x)
+        y_rec_loss = F.l1_loss(self.gen(to_y(x_hat)), y)
+
+        lambda_rec = 10
+        x_g_loss = x_adv_loss + x_cls_loss + lambda_rec * x_rec_loss
+        y_g_loss = y_adv_loss + y_cls_loss + lambda_rec * y_rec_loss
+        g_loss = x_g_loss + y_g_loss
+
+        g_opt.zero_grad()
+        self.manual_backward(g_loss)
+        g_opt.step()
+
+        self.log("train/disc_loss", d_loss)
+        self.log("train/gen_loss", g_loss)
+        self.log("train/y_rec_loss", y_rec_loss)
+        self.log("train/x_src_r", x_src_r.mean())
+        self.log("train/x_src_f", x_src_f.mean())
+        self.log("train/y_src_r", y_src_r.mean())
+        self.log("train/y_src_f", y_src_f.mean())
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        zeros = torch.zeros(x.shape[0], 1, x.shape[2], x.shape[3])
-        ones = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
+        shape = list(x.shape)
+        shape[1] = 1
+        zeros = torch.zeros(shape, device=self.device)
+        ones = torch.ones(shape, device=self.device)
 
         def to_y(x):
             return torch.cat([x, zeros, ones], 1)
