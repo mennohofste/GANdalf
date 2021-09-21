@@ -10,7 +10,7 @@ def main():
     model = CycleGAN.load_from_checkpoint(
         checkpoint_path="checkpoints/CycleGAN-epoch03-l10.18.ckpt"
     )
-    trainer = Trainer()
+    trainer = Trainer(logger=False)
     dm = FaceDataModule()
 
     trainer.test(model, dm)
