@@ -101,17 +101,17 @@ class StarDisc(nn.Module):
         layers.append(block(3, 64))
         layers.append(block(64, 128))
         layers.append(block(128, 256))
+        layers.append(block(256, 256))
+        layers.append(block(256, 256))
         layers.append(block(256, 512))
-        layers.append(block(512, 1024))
-        layers.append(block(1024, 2048))
         self.conv = nn.Sequential(*layers)
 
         self.src = nn.Sequential(
-            nn.Conv2d(2048, 1, 3, 1, 1),
+            nn.Conv2d(512, 1, 3, 1, 1),
             nn.Sigmoid(),
         )
         self.cls = nn.Sequential(
-            nn.Conv2d(2048, nr_class, 4),
+            nn.Conv2d(512, nr_class, 4),
             nn.Softmax(1),
         )
 
