@@ -12,12 +12,14 @@ def main():
         monitor='val/l1',
         dirpath='checkpoints',
         filename='CycleGAN-epoch{epoch:02d}-l1{val/l1:.2f}',
-        auto_insert_metric_name=False
+        auto_insert_metric_name=False,
+        save_last=True,
+        save_top_k=3
     )
 
     model = CycleGAN()
     trainer = Trainer(callbacks=[checkpoint_callback],
-                      gpus=1)
+                      gpus=1, max_epochs=10)
     dm = FaceDataModule()
 
     trainer.fit(model, dm)
