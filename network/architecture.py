@@ -87,10 +87,7 @@ class CycleGAN(pl.LightningModule):
         self.log("train/disc_loss", d_loss)
         self.log("train/gen_loss", g_loss)
         self.log("train/y_rec_loss", y_rec_loss)
-        self.log("train/x_src_r", x_src_r.mean())
-        self.log("train/x_src_f", x_src_f.mean())
-        self.log("train/y_src_r", y_src_r.mean())
-        self.log("train/y_src_f", y_src_f.mean())
+        self.log("train/y_adv_loss", y_adv_loss)
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
@@ -241,10 +238,8 @@ class StarGAN(pl.LightningModule):
         self.log("train/disc_loss", d_loss)
         self.log("train/gen_loss", g_loss)
         self.log("train/y_rec_loss", y_rec_loss)
-        self.log("train/x_src_r", x_src_r.mean())
-        self.log("train/x_src_f", x_src_f.mean())
-        self.log("train/y_src_r", y_src_r.mean())
-        self.log("train/y_src_f", y_src_f.mean())
+        self.log("train/y_adv_loss", y_adv_loss)
+        self.log("train/y_cls_loss", y_adv_loss)
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
