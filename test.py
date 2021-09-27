@@ -2,13 +2,13 @@
 from pytorch_lightning import Trainer
 
 from network.architecture import CycleGAN
-from network.architecture import StarGAN
 from data import FaceDataModule
 
 
 def main():
     model = CycleGAN.load_from_checkpoint(
-        checkpoint_path="checkpoints/CycleGAN-epoch03-l10.18.ckpt"
+        checkpoint_path="lightning_logs/version_1/checkpoints/CycleGAN-epoch01-l10.05.ckpt",
+        args=None,
     )
     trainer = Trainer(logger=False)
     dm = FaceDataModule()

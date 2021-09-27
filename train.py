@@ -1,25 +1,30 @@
 #!/home/menno/Documents/GANdalf/.venv/bin/python
+from argparse import ArgumentParser
+
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from network.architecture import CycleGAN
-from network.architecture import StarGAN
+# from network.architecture import StarGAN
 from data import FaceDataModule
 
 
 def main():
+    parser = ArgumentParser()
+    parser = CycleGAN.add_model_specific_args(parser)
+    parser = Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+
     checkpoint_callback = ModelCheckpoint(
         monitor='val/l1',
-        dirpath='checkpoints',
-        filename='StarGAN-epoch{epoch:02d}-l1{val/l1:.2f}',
+        filename='CycleGAN-epoch{epoch:02d}-l1{val/l1:.2f}',
         auto_insert_metric_name=False,
-        save_last=True,
         save_top_k=3
     )
 
-    model = StarGAN()
-    trainer = Trainer(callbacks=[checkpoint_callback],
-                      gpus=1, max_epochs=10)
+    model = CycleGAN(args)
+    trainer = Trainer.from_argparse_args(args, callbacks=[checkpoint_callback],
+                                         gpus=1, max_epochs=2)
     dm = FaceDataModule()
 
     trainer.fit(model, dm)
