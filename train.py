@@ -16,10 +16,9 @@ def main():
     args = parser.parse_args()
 
     checkpoint_callback = ModelCheckpoint(
-        monitor='val/l1',
-        filename='CycleGAN-epoch{epoch:02d}-l1{val/l1:.2f}',
+        monitor='val/lpips',
+        filename='CycleGAN-epoch{epoch:02d}-lpips{val/lpips:.2f}',
         auto_insert_metric_name=False,
-        save_top_k=3
     )
 
     model = CycleGAN(args)
