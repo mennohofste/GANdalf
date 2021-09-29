@@ -289,7 +289,7 @@ class StarGAN(pl.LightningModule):
         self.log("train/x_cls_loss", x_cls_loss)
         self.log("train/y_cls_loss", y_cls_loss)
 
-    def validation_step(self, batch, batch_idx):
+    def _eval(self, batch):
         x, y = batch
         _, y_label = self.get_labels(x.size(0))
         y_hat = self.gen(x, y_label)
@@ -304,40 +304,41 @@ class StarGAN(pl.LightningModule):
         ssim_loss = ssim(y, y_hat, 1)
         lpips_loss = self.lpips(y, y_hat)
 
-        self.log("val/l1", l1_loss)
-        self.log("val/l2", l2_loss)
-        self.log("val/psnr", psnr_loss)
-        self.log("val/ssim", ssim_loss)
-        self.log("val/lpips", lpips_loss)
-        return l1_loss
+        return {
+            'l1': l1_loss,
+            'l2': l2_loss,
+            'psnr': psnr_loss,
+            'ssim': ssim_loss,
+            'lpips': lpips_loss,
+        }
+
+    def validation_step(self, batch, batch_idx):
+        losses = self._eval(batch)
+        self.log("val/l1", losses['l1'])
+        self.log("val/l2", losses['l2'])
+        self.log("val/psnr", losses['psnr'])
+        self.log("val/ssim", losses['ssim'])
+        self.log("val/lpips", losses['lpips'])
+        return losses
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        x_label, y_label = self.get_labels(x.size(0))
-        y_hat = self.gen(x, y_label)
-        x_hat = self.gen(y, x_label)
+        return self._eval(batch)
 
-        x = (x + 1) / 2
-        y = (y + 1) / 2
-        x_hat = (x_hat + 1) / 2
-        y_hat = (y_hat + 1) / 2
-
-        l1_loss = F.l1_loss(y, y_hat)
-        l2_loss = F.mse_loss(y, y_hat)
-        psnr_loss = psnr(y, y_hat)
-        ssim_loss = ssim(y, y_hat, 1)
-        lpips_loss = self.lpips(y, y_hat)
-
-        print(l1_loss)
-        print(l2_loss)
-        print(psnr_loss)
-        print(ssim_loss)
-        print(lpips_loss.mean())
-        save_image(y_hat[0], 'test0_y_hat.jpg')
-        save_image(y[0], 'test0_y.jpg')
-        save_image(x[0], 'test0_x.jpg')
-        save_image(x_hat[0], 'test0_x_hat.jpg')
-        return l1_loss
+    def test_epoch_end(self, outputs):
+        avg_l1 = torch.stack([x['l1'] for x in outputs]).mean()
+        avg_l2 = torch.stack([x['l2'] for x in outputs]).mean()
+        avg_psnr = torch.stack([x['psnr'] for x in outputs]).mean()
+        avg_ssim = torch.stack([x['ssim'] for x in outputs]).mean()
+        avg_lpips = torch.stack([x['lpips'] for x in outputs]).mean()
+        result = {
+            'l1': avg_l1,
+            'l2': avg_l2,
+            'psnr': avg_psnr,
+            'ssim': avg_ssim,
+            'lpips': avg_lpips,
+        }
+        print(result)
+        return result
 
     def configure_optimizers(self):
         opt_gen = torch.optim.Adam(
