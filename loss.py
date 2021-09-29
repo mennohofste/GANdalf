@@ -11,10 +11,14 @@ class Dloss:
 
     def __call__(self, src_r, src_f, disc=None, real=None, fake=None):
         if self.loss == 'minimax':
-            src_r = torch.sigmoid(src_r)
-            src_f = torch.sigmoid(src_f)
+            src_r = src_r.sigmoid()
+            src_f = src_f.sigmoid()
             return -self.lambda_adv * ((src_r + 1e-8).log().mean() + (1 - src_f + 1e-8).log().mean())
         if self.loss == 'hinge':
+            return self.lambda_adv * (F.relu(1 - src_r).mean() + F.relu(1 + src_f).mean())
+        if self.loss == 'hinge_prob':
+            src_r = src_r.sigmoid()
+            src_f = src_f.sigmoid()
             return self.lambda_adv * (F.relu(1 - src_r).mean() + F.relu(1 + src_f).mean())
         if self.loss == 'wasserstein':
             assert disc is not None and real is not None and fake is not None
@@ -36,6 +40,8 @@ class Dloss:
         x_hat = (epsilon * real + (1 - epsilon)
                  * fake.detach()).requires_grad_()
         src_out = disc(x_hat)
+        if type(src_out) is tuple:
+            src_out = src_out[0]
 
         dydx = torch.autograd.grad(outputs=src_out,
                                    inputs=x_hat,
@@ -56,10 +62,14 @@ class Gloss:
 
     def __call__(self, src_r, src_f):
         if self.loss == 'minimax':
-            src_r = torch.sigmoid(src_r)
-            src_f = torch.sigmoid(src_f)
+            src_r = src_r.sigmoid()
+            src_f = src_f.sigmoid()
             return -self.lambda_adv * (src_f + 1e-8).log().mean()
         if self.loss == 'hinge':
+            return -self.lambda_adv * src_f.mean()
+        if self.loss == 'hinge_prob':
+            src_r = src_r.sigmoid()
+            src_f = src_f.sigmoid()
             return -self.lambda_adv * src_f.mean()
         if self.loss == 'wasserstein':
             return -self.lambda_adv * src_f.mean()
