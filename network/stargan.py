@@ -25,14 +25,15 @@ class ResidualBlock(nn.Module):
 class Generator(nn.Module):
     """Generator network."""
 
-    def __init__(self, conv_dim=64, c_dim=1, repeat_num=6):
+    def __init__(self, conv_dim=64, c_dim=1, repeat_num=6, mask_type='no'):
         super(Generator, self).__init__()
-        self.c_dim = c_dim
-        if self.c_dim == 1:
-            self.c_dim = 0
+        self.mask_type = mask_type
+        c_dim = c_dim
+        if c_dim == 1:
+            c_dim = 0
 
         layers = []
-        layers.append(nn.Conv2d(3+self.c_dim, conv_dim, kernel_size=7,
+        layers.append(nn.Conv2d(3+c_dim, conv_dim, kernel_size=7,
                       stride=1, padding=3, bias=False))
         layers.append(nn.InstanceNorm2d(
             conv_dim, affine=True, track_running_stats=True))
@@ -60,23 +61,37 @@ class Generator(nn.Module):
                 curr_dim//2, affine=True, track_running_stats=True))
             layers.append(nn.ReLU(inplace=True))
             curr_dim = curr_dim // 2
-
-        layers.append(nn.Conv2d(curr_dim, 3, kernel_size=7,
-                      stride=1, padding=3, bias=False))
-        layers.append(nn.Tanh())
         self.main = nn.Sequential(*layers)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(curr_dim, 3, kernel_size=7,
+                      stride=1, padding=3, bias=False),
+            nn.Tanh(),
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(curr_dim, 1, kernel_size=7,
+                      stride=1, padding=3, bias=False),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x, c=None):
         # Replicate spatially and concatenate domain information.
         # Note that this type of label conditioning does not work at all if we use reflection padding in Conv2d.
         # This is because instance normalization ignores the shifting (or bias) effect.
-        if self.c_dim == 0:
-            return self.main(x)
+        h = self.main(x)
 
-        c = c.view(c.size(0), c.size(1), 1, 1)
-        c = c.repeat(1, 1, x.size(2), x.size(3))
-        x = torch.cat([x, c], dim=1)
-        return self.main(x)
+        if c is not None:
+            c = c.view(c.size(0), c.size(1), 1, 1)
+            c = c.repeat(1, 1, h.size(2), h.size(3))
+            h = torch.cat([h, c], dim=1)
+            return self.conv1(h)
+
+        if self.mask_type == 'res':
+            return self.conv1(h) + x
+        if self.mask_type == 'mask':
+            return self.conv1(h) * self.conv2(h)
+        if self.mask_type == 'bin_mask':
+            return self.conv1(h) * (self.conv2(h) > 0.5)
+        return self.conv1(h)
 
 
 class Discriminator(nn.Module):

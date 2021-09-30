@@ -1,4 +1,3 @@
-from numpy import dtype
 import torch
 
 import torch.nn.functional as F
@@ -24,8 +23,8 @@ class CycleGAN(pl.LightningModule):
         self.lr_disc = 4e-4
         self.betas = (0.5, 0.9)
 
-        self.gen_x = Generator()
-        self.gen_y = Generator()
+        self.gen_x = Generator(mask_type=args.mask_type)
+        self.gen_y = Generator(mask_type=args.mask_type)
         self.disc_x = Discriminator()
         self.disc_y = Discriminator()
 
@@ -42,6 +41,7 @@ class CycleGAN(pl.LightningModule):
         parser = parent_parser.add_argument_group("CycleGAN")
         parser.add_argument("--loss", type=str, default='wasserstein')
         parser.add_argument("--lambda_adv", type=float, default=0.1)
+        parser.add_argument("--mask_type", type=str, default='no')
         return parent_parser
 
     def forward(self, x):
