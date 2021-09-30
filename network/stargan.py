@@ -88,9 +88,11 @@ class Generator(nn.Module):
         if self.mask_type == 'res':
             return self.conv1(h) + x
         if self.mask_type == 'mask':
-            return self.conv1(h) * self.conv2(h)
+            mask = self.conv2(h)
+            return mask * self.conv1(h) + (1 - mask) * x
         if self.mask_type == 'bin_mask':
-            return self.conv1(h) * (self.conv2(h) > 0.5)
+            mask = self.conv2(h) < 0.5
+            return mask * self.conv1(h) + ~mask * x
         return self.conv1(h)
 
 
