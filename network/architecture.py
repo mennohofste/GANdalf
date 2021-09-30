@@ -7,6 +7,7 @@ from pytorch_msssim import ssim
 from lpips import LPIPS
 
 from loss import Dloss, Gloss
+from network.discriminator import RED, PatchDisc, StarDisc
 from network.stargan import Generator
 from network.stargan import Discriminator
 
@@ -18,21 +19,33 @@ def psnr(x, y):
 class CycleGAN(pl.LightningModule):
     def __init__(self, args):
         super().__init__()
-        self.save_hyperparameters(args)
         self.lr_gen = 1e-4
         self.lr_disc = 4e-4
         self.betas = (0.5, 0.9)
 
         self.gen_x = Generator(mask_type=args.mask_type)
         self.gen_y = Generator(mask_type=args.mask_type)
-        self.disc_x = Discriminator()
-        self.disc_y = Discriminator()
 
         self.lpips = LPIPS()
         self.automatic_optimization = False
 
-        if not args:
+        if not hasattr(args, 'loss'):
             return
+        self.save_hyperparameters(args)
+
+        if args.disc_type == 'StarGAN':
+            self.disc_x = StarDisc()
+            self.disc_y = StarDisc()
+        if args.disc_type == 'PatchGAN':
+            self.disc_x = PatchDisc()
+            self.disc_y = PatchDisc()
+        if args.disc_type == 'RED':
+            self.disc_x = RED()
+            self.disc_y = RED()
+        if args.disc_type == 'default':
+            self.disc_x = Discriminator()
+            self.disc_y = Discriminator()
+
         self.g_adv_loss = Gloss(args.loss, args.lambda_adv)
         self.d_adv_loss = Dloss(args.loss, args.lambda_adv)
 
@@ -42,6 +55,7 @@ class CycleGAN(pl.LightningModule):
         parser.add_argument("--loss", type=str, default='wasserstein')
         parser.add_argument("--lambda_adv", type=float, default=0.1)
         parser.add_argument("--mask_type", type=str, default='no')
+        parser.add_argument("--disc_type", type=str, default='default')
         return parent_parser
 
     def forward(self, x):

@@ -4,7 +4,7 @@ from torch.nn.utils import spectral_norm
 
 
 class PatchDisc(nn.Module):
-    def __init__(self, nr_class=2):
+    def __init__(self, nr_class=1):
         super().__init__()
         self.nr_class = nr_class
 
@@ -38,7 +38,7 @@ class PatchDisc(nn.Module):
 
 # Discriminator of PEPSI++
 class RED(nn.Module):
-    def __init__(self, nr_class=2, disc_m='red'):
+    def __init__(self, nr_class=1, disc_m='red'):
         super().__init__()
         self.nr_class = nr_class
         self.disc_m = disc_m
@@ -67,16 +67,20 @@ class RED(nn.Module):
             self.src = nn.Flatten()
         if disc_m == 'red':
             self.src = [nn.Linear(512, 1) for _ in range(4 ** 2)]
+            self.src = nn.ModuleList(self.src)
         self.cls = nn.Conv2d(512, nr_class, 4)
 
     def forward(self, x):
         x = self.conv(x)
 
         if self.disc_m == 'red':
+            # create list of pixel outputs grouped with channels
             pixels = x.flatten(2).split(1, 2)
             temp = []
             for i, pixel in enumerate(pixels):
+                # put each of these pixels through their own linear
                 temp.append(self.src[i](pixel.squeeze()))
+            # concatenate all those outputs again
             src = torch.cat(temp, 1)
         else:
             src = self.src(x)
@@ -87,7 +91,7 @@ class RED(nn.Module):
 
 
 class StarDisc(nn.Module):
-    def __init__(self, nr_class=2):
+    def __init__(self, nr_class=1):
         super().__init__()
         self.nr_class = nr_class
 
