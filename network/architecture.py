@@ -8,6 +8,7 @@ from lpips import LPIPS
 
 from loss import Dloss, Gloss
 from network.discriminator import RED, PatchDisc, StarDisc
+from network.generator import StarGen
 from network.stargan import Generator
 from network.stargan import Discriminator
 
@@ -23,15 +24,12 @@ class CycleGAN(pl.LightningModule):
         self.lr_disc = 4e-4
         self.betas = (0.5, 0.9)
 
-        self.gen_x = Generator(mask_type=args.mask_type)
-        self.gen_y = Generator(mask_type=args.mask_type)
-
-        self.lpips = LPIPS()
-        self.automatic_optimization = False
-
-        if not hasattr(args, 'loss'):
-            return
-        self.save_hyperparameters(args)
+        if args.gen_type == 'StarGAN':
+            self.gen_x = StarGen(mask_type=args.mask_type)
+            self.gen_y = StarGen(mask_type=args.mask_type)
+        if args.gen_type == 'default':
+            self.gen_x = Generator(mask_type=args.mask_type)
+            self.gen_y = Generator(mask_type=args.mask_type)
 
         if args.disc_type == 'StarGAN':
             self.disc_x = StarDisc()
@@ -46,6 +44,13 @@ class CycleGAN(pl.LightningModule):
             self.disc_x = Discriminator()
             self.disc_y = Discriminator()
 
+        self.lpips = LPIPS()
+        self.automatic_optimization = False
+
+        if not hasattr(args, 'loss'):
+            return
+        self.save_hyperparameters(args)
+
         self.g_adv_loss = Gloss(args.loss, args.lambda_adv)
         self.d_adv_loss = Dloss(args.loss, args.lambda_adv)
 
@@ -56,6 +61,7 @@ class CycleGAN(pl.LightningModule):
         parser.add_argument("--lambda_adv", type=float, default=0.1)
         parser.add_argument("--mask_type", type=str, default='no')
         parser.add_argument("--disc_type", type=str, default='default')
+        parser.add_argument("--gen_type", type=str, default='default')
         return parent_parser
 
     def forward(self, x):
@@ -157,7 +163,7 @@ class CycleGAN(pl.LightningModule):
             y_hat = (y_hat + 1) / 2
 
             for i in range(x.size(0)):
-                save_image(y_hat[i], f'images/{i}_m.jpg')
+                save_image(y_hat[i], f'images/{i}_bin_mask.jpg')
                 save_image(y[i], f'images/{i}_target.jpg')
                 save_image(x[i], f'images/{i}_input.jpg')
         return losses

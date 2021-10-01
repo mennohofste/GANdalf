@@ -112,7 +112,6 @@ class StarDisc(nn.Module):
 
         self.src = nn.Sequential(
             nn.Conv2d(2048, 1, 3, 1, 1),
-            nn.Sigmoid(),
         )
         self.cls = nn.Sequential(
             nn.Conv2d(2048, nr_class, 4),
