@@ -8,7 +8,7 @@ from lpips import LPIPS
 
 from loss import Dloss, Gloss
 from network.discriminator import RED, PatchDisc, StarDisc
-from network.generator import StarGen
+from network.generator import DMFN, StarGen
 from network.stargan import Generator
 from network.stargan import Discriminator
 
@@ -27,6 +27,11 @@ class CycleGAN(pl.LightningModule):
         if args.gen_type == 'StarGAN':
             self.gen_x = StarGen(mask_type=args.mask_type)
             self.gen_y = StarGen(mask_type=args.mask_type)
+        if args.gen_type == 'DMFN':
+            self.gen_x = DMFN(mask_type=args.mask_type,
+                              block_type=args.block_type)
+            self.gen_y = DMFN(mask_type=args.mask_type,
+                              block_type=args.block_type)
         if args.gen_type == 'default':
             self.gen_x = Generator(mask_type=args.mask_type)
             self.gen_y = Generator(mask_type=args.mask_type)
@@ -62,6 +67,7 @@ class CycleGAN(pl.LightningModule):
         parser.add_argument("--mask_type", type=str, default='no')
         parser.add_argument("--disc_type", type=str, default='default')
         parser.add_argument("--gen_type", type=str, default='default')
+        parser.add_argument("--block_type", type=str, default='resb')
         return parent_parser
 
     def forward(self, x):
