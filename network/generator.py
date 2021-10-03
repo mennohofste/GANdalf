@@ -6,13 +6,14 @@ from torch.nn.modules.activation import ReLU
 class ResidualBlock(nn.Module):
     """Residual Block with instance normalization."""
 
-    def __init__(self, dim_in, dim_out):
+    def __init__(self, dim_in, dim_out, dilation=1):
         super().__init__()
         self.main = nn.Sequential(
             nn.Conv2d(dim_in, dim_out, 3, 1, 1),
             nn.InstanceNorm2d(dim_out),
             nn.ReLU(True),
-            nn.Conv2d(dim_out, dim_out, 3, 1, 1),
+            # Padding scales with dilation.
+            nn.Conv2d(dim_out, dim_out, 3, 1, dilation, dilation=dilation),
             nn.InstanceNorm2d(dim_out))
 
     def forward(self, x):
@@ -54,8 +55,52 @@ class DMFB(nn.Module):
         return output
 
 
+class Menno(nn.Module):
+    def __init__(self, conv_dim=64, repeat_num=6):
+        super().__init__()
+        layers = []
+        layers.append(nn.Conv2d(3, conv_dim, 5, 1, 2))
+        layers.append(nn.ReLU())
+
+        # Down sampling layers.
+        curr_dim = conv_dim
+        for _ in range(2):
+            layers.append(nn.Conv2d(curr_dim, curr_dim * 2, 5, 2, 2))
+            layers.append(nn.InstanceNorm2d(curr_dim * 2))
+            layers.append(nn.ReLU(True))
+            curr_dim *= 2
+
+        # Bottleneck layers
+        for _ in range(repeat_num):
+            layers.append(DMFB(curr_dim))
+
+        # Up-sampling layers.
+        for _ in range(2):
+            layers.append(nn.Upsample(scale_factor=2))
+            layers.append(nn.Conv2d(curr_dim, curr_dim // 2, 3, 1, 1))
+            layers.append(nn.InstanceNorm2d(curr_dim // 2))
+            layers.append(nn.ReLU(True))
+            curr_dim //= 2
+
+        self.main = nn.Sequential(*layers)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(curr_dim, 3, 5, 1, 2),
+            nn.Tanh()
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(curr_dim, 1, 5, 1, 2),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        h = self.main(x)
+
+        mask = self.conv2(h)
+        return mask * self.conv1(h) + (1 - mask) * x
+
+
 class DMFN(nn.Module):
-    def __init__(self, conv_dim=64, repeat_num=6, mask_type='no', block_type='resb'):
+    def __init__(self, conv_dim=64, repeat_num=6, mask_type='no', block_type='resb', dilation=1):
         super().__init__()
         self.mask_type = mask_type
 
@@ -74,7 +119,7 @@ class DMFN(nn.Module):
         # Bottleneck layers
         for _ in range(repeat_num):
             if block_type == 'resb':
-                layers.append(ResidualBlock(curr_dim, curr_dim))
+                layers.append(ResidualBlock(curr_dim, curr_dim, dilation))
             if block_type == 'dmfb':
                 layers.append(DMFB(curr_dim))
 
