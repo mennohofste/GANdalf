@@ -5,7 +5,8 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from network.architecture import CycleGAN
-# from network.architecture import StarGAN
+from network.architecture import StarGAN
+from network.architecture import StarGAN_2disc
 from data import FaceDataModule
 
 
@@ -19,6 +20,7 @@ def main():
         monitor='val/lpips',
         filename='CycleGAN-epoch{epoch:02d}-lpips{val/lpips:.2f}',
         auto_insert_metric_name=False,
+        save_top_k=3,
     )
 
     model = CycleGAN(args)
