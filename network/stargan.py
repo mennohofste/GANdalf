@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+from network.generator import DMFB
+
 
 class ResidualBlock(nn.Module):
     """Residual Block with instance normalization."""
@@ -25,9 +27,10 @@ class ResidualBlock(nn.Module):
 class Generator(nn.Module):
     """Generator network."""
 
-    def __init__(self, conv_dim=64, c_dim=1, repeat_num=6, mask_type='no'):
+    def __init__(self, conv_dim=64, c_dim=1, repeat_num=6, mask_type='no', block_type='resb'):
         super(Generator, self).__init__()
         self.mask_type = mask_type
+        self.block_type = block_type
         c_dim = c_dim
         if c_dim == 1:
             c_dim = 0
@@ -51,7 +54,10 @@ class Generator(nn.Module):
 
         # Bottleneck layers.
         for i in range(repeat_num):
-            layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
+            if self.block_type == 'dmfb':
+                layers.append(DMFB(curr_dim))
+            if self.block_type == 'resb':
+                layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
 
         # Up-sampling layers.
         for i in range(2):
