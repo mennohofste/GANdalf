@@ -7,10 +7,13 @@ from data import FaceDataModule
 
 
 def main():
-    args = {'mask_type': 'no', 'disc_type': 'PatchGAN', 'gen_type': 'default'}
+    args = {'mask_type': 'mask', 'block_type': 'resb',
+            'disc_type': 'default', 'gen_type': 'default',
+            'dilation': 1, }
     args = SimpleNamespace(**args)
     model = CycleGAN.load_from_checkpoint(
-        checkpoint_path="lightning_logs/version_24/checkpoints/CycleGAN-epoch01-lpips0.25.ckpt",
+        checkpoint_path="lightning_logs/version_38/checkpoints/CycleGAN-epoch01-lpips0.08.ckpt",
+        strict=False,
         args=args,
     )
     trainer = Trainer(logger=False, gpus=1)
